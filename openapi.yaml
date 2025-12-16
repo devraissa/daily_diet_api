@@ -1,0 +1,398 @@
+openapi: 3.0.0
+info:
+  title: Daily Diet API
+  description: API para controle de dieta diária com níveis de acesso diferenciados para Admin e User.
+  version: 1.0.0
+servers:
+  - url: "http://127.0.0.1:5000"
+    description: Servidor Local de Desenvolvimento
+tags:
+  - name: Autenticação
+  - name: Perfil do Usuário
+  - name: Dieta do Usuário
+  - name: Painel Administrativo
+
+paths:
+  /register:
+    post:
+      tags: ["Autenticação"]
+      summary: Cadastrar novo usuário
+      description: Registra um novo perfil com a função padrão 'user'.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: 
+              $ref: '#/components/schemas/AuthInput'
+      responses:
+        "201":
+          description: Usuário cadastrado com sucesso!
+        "400":
+          description: O nome de usuário já existe ou os campos obrigatórios não foram preenchidos.
+
+  /login:
+    post:
+      tags: ["Autenticação"]
+      summary: Autenticar usuário
+      description: Valida as credenciais e inicia uma sessão autenticada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: 
+              type: object
+              required: [username, password]
+              properties: 
+                username:
+                  type: string
+                  example: "julia_fonseca"
+                password:
+                  type: string
+                  example: "senha123"
+      responses:
+        "200":
+          description: Login realizado com sucesso!
+        "401":
+          description: Usuário ou senha incorretos.
+
+  /logout:
+    post:
+      tags: ["Autenticação"]
+      summary: Encerrar sessão
+      description: Finaliza a sessão do usuário logado e invalida o token/cookie.
+      responses:
+        "200":
+          description: Logout realizado com sucesso!
+        "401":
+          description: Não foi possível realizar logout porque não existe uma sessão ativa no navegador.
+
+  /me:
+    get:
+      tags: ["Perfil do Usuário"]
+      summary: Ver dados do usuário logado
+      description: Retorna o ID, nome de usuário e cargo (role) da sessão atual.
+      responses:
+        "200":
+          description: Dados do perfil recuperados com sucesso.
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/User'
+        "401":
+          description: "Acesso negado: o usuário precisa estar logado para ver seus dados de perfil."
+    put:
+      tags: ["Perfil do Usuário"]
+      summary: Atualizar senha do usuário logado
+      description: Permite que o usuário logado altere sua própria senha.
+      requestBody: 
+        content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  password: {type: string}
+      responses:
+        "200":
+          description: Senha atualizada com sucesso!
+        "401":
+          description: "Usuário não autenticado para realizar a troca de senha."
+    delete:
+      tags: ["Perfil do Usuário"]
+      summary: Deletar usuário logado
+      description: Permite que o usuário logado delete a si mesmo.
+      responses:
+        "200":
+          description: Usuário deletado com sucesso!
+        "401":
+          description: "Falha na deleção: usuário não está autenticado."      
+  
+  /me/meals:
+    post:
+      tags: ["Dieta do Usuário"]
+      summary: Registrar uma nova refeição
+      description: Adiciona um novo registro de alimentação ao diário do usuário logado.
+      requestBody: 
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealInput'
+      responses:
+        "201":
+          description: Refeição registrada com sucesso!
+        "400":
+          description: Dados insuficientes ou inválidos para registrar a refeição.
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+
+    get:
+      tags: ["Dieta do Usuário"]
+      summary: Listar todas as refeições
+      description: Retorna o histórico completo de refeições do usuário logado.
+      responses:
+        "200":
+          description: Lista de refeições recuperada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Meal'
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+          
+  /me/meals/{meal_id}:
+    parameters:
+      - name: meal_id
+        in: path
+        description: ID da refeição para ser obtido/atualizado/deletado.
+        required: true
+        schema:
+          type: integer
+
+    get:
+      tags: ["Dieta do Usuário"]
+      summary: Obter uma refeição específica
+      description: Permite obter dados de uma refeição existente pertencente ao usuário logado pelo seu ID.
+      responses:
+        "200":
+          description: Refeição obtida com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meal'
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+        "404":
+          description: Refeição não encontrada.
+    put:
+      tags: ["Dieta do Usuário"]
+      summary: Atualizar uma refeição específica
+      description: Permite alterar os dados de uma refeição existente pertencente ao usuário logado pelo seu ID.
+      requestBody:
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealInput'
+      responses:
+        "200":
+          description: Refeição atualizada com sucesso!
+        "400":
+          description: Erro na atualização. Verifique os dados enviados.
+        "401":
+          description: Sessão expirada. Faça login novamente.
+        "404":
+          description: Refeição não existe ou você não tem permissão para editá-la.
+    delete:                            
+      tags: ["Dieta do Usuário"]
+      summary: Deletar uma refeição específica
+      description: Permite deletar uma refeição existente pertencente ao usuário logado pelo seu ID.
+      responses:
+        "200":
+          description: Refeição deletada com sucesso!
+        "401":
+          description: Usuário não autenticado. Por favor, faça login.
+        "404":
+          description: Refeição não existe ou você não tem permissão para removê-la.
+          
+  /admin/users:
+    get:
+      tags: ["Painel Administrativo"]
+      summary: Obter todos os usuários do sistema
+      description: Permite o administrador do sistema obter todos os usuários cadastrados.
+      responses:
+        "200":
+          description: Lista de usuários obtida com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: 
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total_users:
+                    type: integer
+                        
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+    
+  /admin/users/{user_id}:
+    parameters:
+      - name: user_id
+        in: path
+        description: ID do usuário para ser obtido/atualizado/deletado.
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: ["Painel Administrativo"]
+      summary: Obter um usuário específico
+      description: Permite o administrador do sistema obter um usuário específico cadastrado.
+      responses:
+        "200":
+          description: Usuário obtido com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+        "404":
+          description: Usuário com ID {user_id} não foi encontrado!
+
+    put:
+      tags: ["Painel Administrativo"]
+      summary: Atualiza a senha de um usuário específico
+      description: Permite alterar a senha de um usuário cadastrado.
+      requestBody:
+        content:
+            application/json:
+              schema:
+                properties:
+                  password:
+                    type: string
+      responses:
+        "200":
+          description: Senha atualizada com sucesso!
+        "400":
+          description: Erro na atualização. Verifique os dados enviados.
+        "401":
+          description: Sessão expirada. Faça login novamente.
+        "404":
+          description: Usuário com ID {user_id} não foi encontrado!
+    delete:
+      tags: ["Painel Administrativo"]
+      summary: Deletar um usuário específico
+      description: Permite deletar um usuário cadastrado.
+      responses:
+        "200":
+          description: Usuário deletada com sucesso!
+        "401":
+          description: Sessão expirada. Faça login novamente.
+        "404":
+          description: Usuário com ID {user_id} não foi encontrado!
+  /admin/users/{user_id}/meals:
+    parameters:
+      - name: user_id
+        in: path
+        description: ID do usuário para ser obtido/atualizado/deletado.
+        required: true
+        schema:
+          type: integer
+
+    get:
+      tags: ["Painel Administrativo"]
+      summary: Obter todas as refeições de um usuário específico
+      description: Permite o administrador do sistema obter todas as refeições de um usuário específico cadastrado.
+      responses:
+        "200":
+          description: Usuário obtido com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Meal'
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+        "404":
+          description: Usuário com ID {user_id} não foi encontrado!
+
+  /admin/users/{user_id}/meals/{meal_id}:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID do usuário dono da refeição.
+        schema:
+          type: string
+          format: uuid
+      - name: meal_id
+        in: path
+        required: true
+        description: ID da refeição específica.
+        schema:
+          type: integer
+    get:
+      tags: ["Painel Administrativo"]
+      summary: Obter uma refeição específica de um usuário específico
+      description: Permite o administrador do sistema obter uma refeição específica de um usuário específico cadastrado.
+      responses:
+        "200":
+          description: Usuário obtido com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meal'
+        "401":
+          description: Sessão inválida. Por favor, realize o login.
+        "404":
+          description: Recurso não encontrado.
+    put:
+      tags: ["Painel Administrativo"]
+      summary: Atualiza a refeição de um usuário específico
+      description: Permite alterar os dados de uma refeição de um usuário cadastrado.
+      requestBody: 
+        required: true
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealInput'
+      responses:
+        "200":
+          description: Refeição do usuário de ID {user_id} atualizada com sucesso!
+        "400":
+          description: Erro na atualização. Verifique os dados enviados.
+        "401":
+          description: Sessão expirada. Faça login novamente.
+        "404":
+          description: Recurso não encontrado.
+    delete:
+      tags: ["Painel Administrativo"]
+      summary: Deletar uma refeição específica de um usuário específico
+      description: Permite deletar uma refeição de um usuário cadastrado.
+      responses:
+        "200":
+          description: Deleção da refeição de ID {meal_id} do usuário de ID {user_id} deletada com sucesso!
+        "401":
+          description: Sessão expirada. Faça login novamente.
+        "404":
+          description: Recurso não encontrado.
+                        
+components:
+  schemas:
+    AuthInput:
+      type: object
+      required: [username, password]
+      properties:
+        username: {type: string, example: "julia_f"}
+        password: {type: string, example: "senha123"}
+    User:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        username: {type: string}
+        role: {type: string}
+    Meal:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        description: {type: string}
+        date_time: {type: string, format: date-time}
+        is_on_diet: {type: boolean}
+    MealInput:
+      type: object
+      required: [name, date_time, is_on_diet]
+      properties:
+        name: {type: string}
+        description: {type: string}
+        date_time: {type: string, format: date-time}
+        is_on_diet: {type: boolean}
